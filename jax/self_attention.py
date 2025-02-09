@@ -9,9 +9,11 @@ def attention_fn(query, key, value, mask: bool, dtype):
     d_k = query.shape[-1]
     attn_scores = jnp.dot(query, key.T) / jnp.sqrt(d_k)
     if mask:
+        # print(attn_scores)
         attn_scores = attn_scores.at[
             jnp.triu_indices(attn_scores.shape[0], k=1)
         ].set(jnp.finfo(dtype).min)
+        # print(attn_scores)
     attn = jnp.dot(softmax(attn_scores, 1), value)
     return attn
 
