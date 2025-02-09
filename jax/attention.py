@@ -52,10 +52,11 @@ class MultiHeadedSelfAttention:
         self.h = num_heads
         self.d_k = self.d_model // self.h
         self.d_v = self.d_k                                 # assuming d_v is same as d_k
-        keys = random.split(key, 3)
+        keys = random.split(key, 4)
         self.weight_q = scale * random.normal(keys[0], (self.h, self.d_model, self.d_k), dtype)
         self.weight_k = scale * random.normal(keys[1], (self.h, self.d_model, self.d_k), dtype)
         self.weight_v = scale * random.normal(keys[2], (self.h, self.d_model, self.d_v), dtype)
+        self.weight_o = scale * random.normal(keys[3], (self.h*self.d_v, self.d_model), dtype)
         self.dtype = dtype
 
     def __call__(self, input_embed, mask=False):
@@ -84,8 +85,9 @@ class MultiHeadedSelfAttention:
 
         atten = jnp.einsum("ijk->jik", atten)               # (h, n, d_k) -> (n, h, d_k)
         atten = atten.reshape(atten.shape[0], -1)           # (n, h, d_k) -> (n, h*d_k)
+        out_embed = jnp.matmul(atten, self.weight_o)        # (n, h*d_k) @ (h*d_k, d_model) -> (n, d_model)
 
-        return atten
+        return out_embed
 
 
 # 2nd sublayer in decoder of transformer
@@ -95,10 +97,11 @@ class MultiHeadedCrossAttention:
         self.h = num_heads
         self.d_k = self.d_model // self.h
         self.d_v = self.d_k                                 # assuming d_v is same as d_k
-        keys = random.split(key, 3)
+        keys = random.split(key, 4)
         self.weight_q = scale * random.normal(keys[0], (self.h, self.d_model, self.d_k), dtype)
         self.weight_k = scale * random.normal(keys[1], (self.h, self.d_model, self.d_k), dtype)
         self.weight_v = scale * random.normal(keys[2], (self.h, self.d_model, self.d_v), dtype)
+        self.weight_o = scale * random.normal(keys[3], (self.h*self.d_v, self.d_model), dtype)
         self.dtype = dtype
 
     def __call__(self, input_embed, input_embed_query, mask=False):
@@ -116,8 +119,9 @@ class MultiHeadedCrossAttention:
 
         atten = jnp.einsum("ijk->jik", atten)               # (h, n, d_k) -> (n, h, d_k)
         atten = atten.reshape(atten.shape[0], -1)           # (n, h, d_k) -> (n, h*d_k)
+        out_embed = jnp.matmul(atten, self.weight_o)        # (n, h*d_k) @ (h*d_k, d_model) -> (n, d_model)
 
-        return atten
+        return out_embed
 
 
 if __name__ == "__main__":
@@ -140,5 +144,7 @@ if __name__ == "__main__":
 
     test_input_embed = random.normal(rand_keys[3], (3, d_model), dtype)
     masked_output_embed_s = shsa(test_input_embed, mask=True)
-    masked_output_embed_s = mhsa(test_input_embed, mask=True)
+    masked_output_embed_m = mhsa(test_input_embed, mask=True)
+    print(masked_output_embed_s.shape)
+    print(masked_output_embed_m.shape)
 
