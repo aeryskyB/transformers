@@ -1,6 +1,6 @@
 import jax.numpy as jnp
 from jax import random
-from self_attention import MultiHeadedSelfAttention
+from attention import MultiHeadedSelfAttention
 from ffn import FFN
 from layernorm import Layernorm
 
