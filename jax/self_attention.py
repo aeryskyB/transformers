@@ -5,11 +5,17 @@ from jax import random
 def softmax(x, axis):
     return jnp.exp(x) / jnp.expand_dims(jnp.sum(jnp.exp(x), axis), axis)
 
-def attention_fn(query, key, value):
+def attention_fn(query, key, value, mask: bool, dtype):
     d_k = query.shape[-1]
-    return jnp.dot(softmax(jnp.dot(query, key.T) / jnp.sqrt(d_k), 1), value)
+    attn_scores = jnp.dot(query, key.T) / jnp.sqrt(d_k)
+    if mask:
+        attn_scores = attn_scores.at[
+            jnp.triu_indices(attn_scores.shape[0], k=1)
+        ].set(jnp.finfo(dtype).min)
+    attn = jnp.dot(softmax(attn_scores, 1), value)
+    return attn
 
-batched_attention_fn = vmap(attention_fn, (0, 0, 0), 0)
+batched_attention_fn = vmap(attention_fn, (0, 0, 0, None, None), 0)
 
 def linear_params(m, n, key, scale=1, dtype=jnp.float32):
     t = jnp.sqrt(1/m)
@@ -26,12 +32,15 @@ class SingleHeadedSelfAttention:
         self.weight_q = scale * random.normal(keys[0], (self.d_k, self.d_k), dtype)
         self.weight_k = scale * random.normal(keys[1], (self.d_k, self.d_k), dtype)
         self.weight_v = scale * random.normal(keys[2], (self.d_k, self.d_k), dtype)
+        self.dtype = dtype
 
-    def __call__(self, input_embed):
+    def __call__(self, input_embed, mask=False):
         query = jnp.dot(input_embed, self.weight_q)         # (n, d_k) @ (d_k, d_k) -> (n, d_k)
         key = jnp.dot(input_embed, self.weight_k)           # (n, d_k) @ (d_k, d_k) -> (n, d_k)
         value = jnp.dot(input_embed, self.weight_v)         # (n, d_k) @ (d_k, d_k) -> (n, d_k)
-        output_embed = attention_fn(query, key, value)      # -> (n, d_k)
+        output_embed = attention_fn(query, key, value,
+                                    mask,
+                                    self.dtype)             # -> (n, d_k)
         return output_embed
 
 
@@ -45,8 +54,9 @@ class MultiHeadedSelfAttention:
         self.weight_q = scale * random.normal(keys[0], (self.h, self.d_model, self.d_k), dtype)
         self.weight_k = scale * random.normal(keys[1], (self.h, self.d_model, self.d_k), dtype)
         self.weight_v = scale * random.normal(keys[2], (self.h, self.d_model, self.d_v), dtype)
+        self.dtype = dtype
 
-    def __call__(self, input_embed):
+    def __call__(self, input_embed, mask=False):
         query = jnp.dot(input_embed, self.weight_q)         # (n, d_model) @ (h, d_model, d_k) -> (n, h, d_k)
         key = jnp.dot(input_embed, self.weight_k)           # (n, d_model) @ (h, d_model, d_k) -> (n, h, d_k)
         value = jnp.dot(input_embed, self.weight_v)         # (n, d_model) @ (h, d_model, d_v) -> (n, h, d_v)
@@ -55,6 +65,8 @@ class MultiHeadedSelfAttention:
             jnp.einsum("ijk->jik", query),                  # (n, h, d_k) -> (h, n, d_k)
             jnp.einsum("ijk->jik", key),                    # .
             jnp.einsum("ijk->jik", value),                  # .
+            mask,
+            self.dtype
         )
 
         """ # rawdogging # ;) worked
@@ -75,18 +87,24 @@ class MultiHeadedSelfAttention:
 
 
 if __name__ == "__main__":
-    rand_key = random.key(7)
+    rand_keys = random.split(random.key(7), 4)
     dtype = jnp.float32
     num = 1_024
     d_model = 512
     num_heads = 8
 
-    shsa = SingleHeadedSelfAttention(d_model, key=rand_key, dtype=dtype)
-    input_embed = random.normal(rand_key, (num, d_model), dtype)
+    input_embed = random.normal(rand_keys[1], (num, d_model), dtype)
+    shsa = SingleHeadedSelfAttention(d_model, key=rand_keys[0], dtype=dtype)
     out_embed_s = shsa(input_embed)
     print(out_embed_s.shape)
 
-    mhsa = MultiHeadedSelfAttention(d_model, num_heads, key=rand_key, dtype=dtype)
+    mhsa = MultiHeadedSelfAttention(d_model, num_heads, key=rand_keys[2], dtype=dtype)
     out_embed_m = mhsa(input_embed)
     print(out_embed_m.shape)
+
+    #####
+
+    test_input_embed = random.normal(rand_keys[3], (3, d_model), dtype)
+    masked_output_embed_s = shsa(test_input_embed, mask=True)
+    masked_output_embed_s = mhsa(test_input_embed, mask=True)
 
