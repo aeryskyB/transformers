@@ -9,7 +9,7 @@ def linear_params(m, n, key=random.key(0), scale=1, dtype=jnp.float32):
     return w, b
 
 def relu(tensor):
-    return jnp.clip(0, tensor)
+    return jnp.maximum(0, tensor)
 
 def linear_transform(x, w, b):
     return w @ x + b
@@ -17,7 +17,7 @@ def linear_transform(x, w, b):
 batched_linear_transform = vmap(linear_transform, (0, None, None), 0)
 
 class FFN:
-    def __init__(self, key=random.key(0), layers=[512, 1024, 512], dtype=jnp.float32):
+    def __init__(self, key=random.key(0), layers=[512, 2048, 512], dtype=jnp.float32):
         keys = random.split(key, len(layers)-1)
         self.layers = [linear_params(m, n, key=keys[i], dtype=dtype) for i, (m, n) in enumerate(zip(layers[:-1], layers[1:]))]
 

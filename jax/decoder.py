@@ -5,8 +5,8 @@ from layernorm import Layernorm
 from ffn import FFN
 
 class Decoder:
-    def __init__(self, key=random.key(0), num_heads=6, dtype=jnp.float32):
-        self.n = num_heads
+    def __init__(self, key=random.key(0), stack_size=6, dtype=jnp.float32):
+        self.n = stack_size
         keys = random.split(key, 6*self.n)
         self.stack = [(
             MultiHeadedSelfAttention(key=keys[6*i], dtype=dtype),
