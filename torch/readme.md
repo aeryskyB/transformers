@@ -1,1 +1,1 @@
-![We are going jax route, not pytorch](./threat-pytorch.png)
+<img src="./threat-pytorch.png" alt="We are going jax route, not pytorch" height=300px>
