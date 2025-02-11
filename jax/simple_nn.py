@@ -1,3 +1,4 @@
+import os
 import jax.numpy as jnp
 from jax import grad, jit, vmap
 from jax import random
@@ -52,6 +53,17 @@ def update(params, x, y, lr):
     grads = grad(loss)(params, x, y)
     return [(w - lr*dw, b - lr*db) for (w, b), (dw, db) in zip(params, grads)]
 
+mnist_data_files = [
+    "t10k-images-idx3-ubyte",
+    "t10k-images-idx3-ubyte.gz",
+    "t10k-labels-idx1-ubyte",
+    "t10k-labels-idx1-ubyte.gz",
+    "train-images-idx3-ubyte",
+    "train-images-idx3-ubyte.gz",
+    "train-labels-idx1-ubyte",
+    "train-labels-idx1-ubyte.gz",
+]
+
 if __name__ == "__main__":
     layer_sizes = [28*28, 1024, 128, 10]
     lr = 2e-2
@@ -60,8 +72,10 @@ if __name__ == "__main__":
     num_targets = 10
     params = init_nn(layer_sizes, random.key(0))
 
-    train = datasets.MNIST("./data", train=True, download=False, transform=ToTensor())
-    test = datasets.MNIST("./data", train=False, download=False, transform=ToTensor())
+    download = not all([os.access("./data/MNIST/raw/" + fname, mode=0) for fname in mnist_data_files])
+
+    train = datasets.MNIST("./data", train=True, download=download, transform=ToTensor())
+    test = datasets.MNIST("./data", train=False, download=download, transform=ToTensor())
 
     train_data, train_labels = train.data.numpy(), train.targets.numpy()
     test_data, test_labels = test.data.numpy(), test.targets.numpy()
