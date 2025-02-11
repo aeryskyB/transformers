@@ -1,4 +1,4 @@
-import os
+import sys
 import jax.numpy as jnp
 from jax import grad, jit, vmap
 from jax import random
@@ -64,6 +64,7 @@ mnist_data_files = [
     "train-labels-idx1-ubyte.gz",
 ]
 
+
 if __name__ == "__main__":
     layer_sizes = [28*28, 1024, 128, 10]
     lr = 2e-2
@@ -72,10 +73,15 @@ if __name__ == "__main__":
     num_targets = 10
     params = init_nn(layer_sizes, random.key(0))
 
-    download = not all([os.access("./data/MNIST/raw/" + fname, mode=0) for fname in mnist_data_files])
-
-    train = datasets.MNIST("./data", train=True, download=download, transform=ToTensor())
-    test = datasets.MNIST("./data", train=False, download=download, transform=ToTensor())
+    try:
+        train = datasets.MNIST("./data", train=True, download=False, transform=ToTensor())
+        test = datasets.MNIST("./data", train=False, download=False, transform=ToTensor())
+    except RuntimeError:
+        print("\033[38;2;255;0;0mMNIST data not downloaded. Downloading...\033[38;2;255;255;255m",
+              file=sys.stderr)
+        train = datasets.MNIST("./data", train=True, download=True, transform=ToTensor())
+        test = datasets.MNIST("./data", train=False, download=True, transform=ToTensor())
+        print("\033[38;2;0;255;0mDone!\033[38;2;255;255;255m", file=sys.stderr)
 
     train_data, train_labels = train.data.numpy(), train.targets.numpy()
     test_data, test_labels = test.data.numpy(), test.targets.numpy()
