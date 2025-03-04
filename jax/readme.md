@@ -4,6 +4,7 @@ Time is cruel but I am...
   
 
 # Todo:
+- ~~bpe~~
 - backprop
 - optimizer
 - regularizer

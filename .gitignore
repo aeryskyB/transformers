@@ -1,2 +1,4 @@
 /jax/data/
 /jax/__pycache__/
+/jax/.ipynb_checkpoints/
+/jax/.mypy_cache/
